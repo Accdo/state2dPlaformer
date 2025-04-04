@@ -1,15 +1,11 @@
 using System.Threading;
 using UnityEngine;
 
-public class Player : MonoBehaviour
+public class Player : Entity
 {
-    private Rigidbody2D rb;
-    private Animator anim;
-
-    [SerializeField]
-    private float moveSpeed;
-    [SerializeField]
-    private float jumpForce;
+    [Header("이동동 정보")]
+    [SerializeField] private float moveSpeed;
+    [SerializeField] private float jumpForce;
 
     [Header("대쉬 정보")]
     [SerializeField] private float dashSpeed;
@@ -24,63 +20,47 @@ public class Player : MonoBehaviour
     private bool isAttacking;
     private int comboCounter;
 
-   
     private float xInput;
 
-    private int facingDir = 1;
-    private bool facingRight = true;
 
-    [Header("Collision info")]
-    [SerializeField] private float groundCheckDistance;
-    [SerializeField] private LayerMask whatIsGround;
-    [SerializeField] private bool isGrounded;
-
-
-
-    void Start()
+    protected override void Start()
     {
-        rb = GetComponent<Rigidbody2D>();
-        anim = GetComponentInChildren<Animator>();
+        base.Start();
+
     }
     
-    void Update()
+    protected override void Update()
     {
+        base.Update();
+
+        CheckInput();
+        Movement();
+
         dashTime -= Time.deltaTime;
         dashCooldownTimer -= Time.deltaTime;
         comboTimerCounter -= Time.deltaTime;
-
-        Movement();
-        CheckInput();
-        CollisionCheck();
-
+        
         FlipController();
         AnimatorControllers();
     }
-
-    private void DashAbility()
+    // Velocity State
+    private void Movement()
     {
-        if(dashCooldownTimer < 0 && !isAttacking)
+        if(isAttacking)
         {
-            dashCooldownTimer = dashCooldown;
-            dashTime = dashDuration;
+            rb.linearVelocity = Vector2.zero;
+        }
+        else if(dashTime > 0)
+        {
+            rb.linearVelocity = new Vector2(facingDir * dashSpeed, 0);
+        }
+        else
+        {
+            rb.linearVelocity = new Vector2(xInput * moveSpeed, rb.linearVelocity.y);
         }
     }
-
-    public void AttackOver()
-    {
-        isAttacking = false;
-
-        comboCounter++;
-
-        if(comboCounter > 2)
-            comboCounter = 0;
-    }
-
-    private void CollisionCheck()
-    {
-        isGrounded = Physics2D.Raycast(transform.position, Vector2.down, groundCheckDistance, whatIsGround);
-    }
-
+    
+    // Input
     private void CheckInput()
     {
         xInput = Input.GetAxisRaw("Horizontal");
@@ -100,7 +80,6 @@ public class Player : MonoBehaviour
             DashAbility();
         }
     }
-
     private void StartAttackEvent()
     {
         if(!isGrounded)
@@ -112,30 +91,34 @@ public class Player : MonoBehaviour
         isAttacking = true;
         comboTimerCounter = comboTime;
     }
-
-    private void Movement()
-    {
-        if(isAttacking)
-        {
-            rb.linearVelocity = Vector2.zero;
-        }
-        else if(dashTime > 0)
-        {
-            rb.linearVelocity = new Vector2(facingDir * dashSpeed, 0);
-        }
-        else
-        {
-            rb.linearVelocity = new Vector2(xInput * moveSpeed, rb.linearVelocity.y);
-        }
-    }
-
     private void Jump()
     {
         if(isGrounded)
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
     }
+    private void DashAbility()
+    {
+        if(dashCooldownTimer < 0 && !isAttacking)
+        {
+            dashCooldownTimer = dashCooldown;
+            dashTime = dashDuration;
+        }
+    }
 
-    //Alt + 화살표키
+    // Flip
+    private void FlipController()
+    {
+        if(rb.linearVelocityX > 0 && !facingRight)
+        {
+            Flip();
+        }
+        else if(rb.linearVelocityX <0 &&facingRight)
+        {
+            Flip();
+        }
+    }
+
+    // Animation
     private void AnimatorControllers()
     {
 
@@ -150,27 +133,21 @@ public class Player : MonoBehaviour
         anim.SetInteger("comboCounter", comboCounter);
     }
 
-    private void Flip()
+
+
+    public void AttackOver()
     {
-        facingDir = facingDir * -1;
-        facingRight = !facingRight;
-        transform.Rotate(0, 180, 0);
+        isAttacking = false;
+
+        comboCounter++;
+
+        if(comboCounter > 2)
+            comboCounter = 0;
     }
 
-    private void FlipController()
+    protected override void CollisionChecks()
     {
-        if(rb.linearVelocityX > 0 && !facingRight)
-        {
-            Flip();
-        }
-        else if(rb.linearVelocityX <0 &&facingRight)
-        {
-            Flip();
-        }
+        base.CollisionChecks();
     }
 
-    private void OnDrawGizmos()
-    {
-        Gizmos.DrawLine(transform.position, new Vector3(transform.position.x, transform.position.y - groundCheckDistance));
-    }
 }
